@@ -1,4 +1,3 @@
-
 import pygame
 import interface
 
@@ -10,9 +9,5 @@ def main():
         print("Não foi possível inicializar o player!")
         return
 
-
-
 if __name__ == "__main__":
     main()
-
-
