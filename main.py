@@ -16,10 +16,12 @@ class MusicPlayer:
 
         self.musica_atual = None
         self.musicas_mp3 = []
+        self.ordem = []
 
         self.paused = False
 
         self.modo_aleatorio = False
+
 
         self._carregar_icones()
         self._carregar_tela()
@@ -27,10 +29,14 @@ class MusicPlayer:
         self.FIM_DA_MUSICA = pygame.USEREVENT + 1
         pygame.mixer.music.set_endevent(self.FIM_DA_MUSICA)
 
-        self.verificar_fim_da_musica()
+        self._verificar_fim_da_musica()
 
 
     def _carregar_icones(self):
+        """
+        Carrega os icones do aplicativo.
+        :return:
+        """
         self.icones = {
             "play" : tk.PhotoImage(file="play.png"),
             "pause" : tk.PhotoImage(file="pause.png"),
@@ -40,13 +46,6 @@ class MusicPlayer:
             "shuffle_on" : tk.PhotoImage(file="shuffle_on.png"),
             "shuffle_off" : tk.PhotoImage(file="shuffle_off.png"),
         }
-
-    def verificar_fim_da_musica(self):
-        for event in pygame.event.get():
-            if event.type == self.FIM_DA_MUSICA:
-                self.proxima_musica()
-
-        self.root.after(1000, self.verificar_fim_da_musica)
 
 
     def _carregar_tela(self):
@@ -65,7 +64,7 @@ class MusicPlayer:
         control_frame = tk.Frame(self.root)
         control_frame.pack()
         self.aleatorio_button = tk.Button(control_frame, image=self.icones["shuffle_off"], command=self.aleatorio,height=50, width=50)
-        self.play_pause_button = tk.Button(control_frame, image=self.icones["play"], borderwidth=0, command=self.tocar_musica)
+        self.play_pause_button = tk.Button(control_frame, image=self.icones["pause"], borderwidth=0, command=self.tocar_musica)
         self.next_button = tk.Button(control_frame, image=self.icones["next"], borderwidth=0, command=self.proxima_musica)
         self.previous_button = tk.Button(control_frame, image=self.icones["previous"], borderwidth=0, command=self.musica_anterior)
         self.play_pause_button.grid(row=0, column=1, padx=0, pady=10)
@@ -74,22 +73,87 @@ class MusicPlayer:
         self.aleatorio_button.grid(row=0, column=3, padx=0, pady=10)
 
 
+    def _verificar_fim_da_musica(self):
+
+        for event in pygame.event.get():
+            if event.type == self.FIM_DA_MUSICA:
+                self.proxima_musica()
+
+
+        self.root.after(1000, self._verificar_fim_da_musica)
+
+
     def aleatorio(self):
-        pass
+        """
+        Alterna o estado do modo aleatório (toggle) e embaralha ou retorna a ordem de reprodução de acordo com
+        o estado da variável self.modo_aleatorio.
+        :return:
+        """
         self.modo_aleatorio = not self.modo_aleatorio
         if self.modo_aleatorio:
+            self.embaralhar()
             self.aleatorio_button.config(image=self.icones["shuffle_on"])
+
         else:
+            self.ordem = self.musicas_mp3.copy()
             self.aleatorio_button.config(image=self.icones["shuffle_off"])
 
 
+    def carregar_musica(self,):
+
+        pygame.mixer.music.load(os.path.join(self.pasta, self.musicas_mp3[self.musica_atual]))
+        pygame.mixer.music.play()
+
+        self.lista_de_musicas.selection_clear(0, tk.END)
+        self.lista_de_musicas.selection_set(self.musica_atual)
+
+
+
     def duplo_click(self,event):
-        pass
-        index = self.lista_de_musicas.curselection()
-        if index:
+        """
+        Pega o índice da música clicada e reproduz, alterando a ordem de reprodução para não repetir e adicionar
+        no histórico.
+        :param event:
+        :return:
+        """
+        index_selecionado = self.lista_de_musicas.curselection()
+        if index_selecionado:
             self.lista_de_musicas.selection_clear(0, tk.END)
-            self.musica_atual = self.lista_de_musicas.get(index)+'.mp3'
-            self.lista_de_musicas.selection_set(self.musicas_mp3.index(self.musica_atual))
+            self.ordem.remove(index_selecionado[0])
+            self.ordem[self.ordem.index(self.musica_atual)+1] = index_selecionado[0]
+            self.musica_atual = index_selecionado[0]
+            self.lista_de_musicas.selection_set(self.ordem.index(self.musica_atual))
+            self.carregar_musica()
+
+
+    def musica_anterior(self):
+
+        try:
+            self.lista_de_musicas.selection_clear(0, tk.END)
+            self.lista_de_musicas.selection_set(self.ordem.index(self.musica_atual) - 1)
+            self.musica_atual = self.ordem[self.lista_de_musicas.curselection()[0]]
+            self.carregar_musica()
+
+
+        except IndexError or ValueError:
+            pass
+
+
+    def proxima_musica(self):
+        """
+        Busca a próxima música através da lista de índices (self.ordem). Se identificado que é o fim da lista,
+        retorna o indice para 0 e embaralha novamente  se o modo aleatório estiver ativo.
+        :return:
+        """
+
+        if self.musica_atual == len(self.ordem)-1:
+            if self.modo_aleatorio:
+                self.embaralhar()
+            else:
+                self.musica_atual = 0
+
+        else:
+            self.musica_atual = self.ordem[self.ordem.index(self.musica_atual) + 1]
             self.carregar_musica()
 
 
@@ -97,20 +161,12 @@ class MusicPlayer:
         self.pasta = filedialog.askdirectory(title="Selecione uma Pasta")
 
         self.musicas_mp3 = [musica for musica in os.listdir(self.pasta) if musica.endswith('.mp3')]
-
         for musica in self.musicas_mp3:
             self.lista_de_musicas.insert("end", musica.replace(".mp3",''))
-
         self.lista_de_musicas.select_set(0)
-        self.musica_atual = self.musicas_mp3[self.lista_de_musicas.curselection()[0]]
-
+        self.musica_atual = 0
+        self.ordem = [indice for indice in range(len(self.musicas_mp3))]
         self.carregar_musica()
-
-
-
-    def carregar_musica(self):
-        pygame.mixer.music.load(os.path.join(self.pasta, self.musica_atual))
-        pygame.mixer.music.play()
 
 
     def tocar_musica(self):
@@ -128,27 +184,10 @@ class MusicPlayer:
             return
 
 
-    def proxima_musica(self):
-        if not self.modo_aleatorio:
-            self.lista_de_musicas.selection_clear(0, tk.END)
-            self.lista_de_musicas.selection_set(self.musicas_mp3.index(self.musica_atual) + 1)
-            self.musica_atual = self.musicas_mp3[self.lista_de_musicas.curselection()[0]]
-            self.carregar_musica()
-        else:
-            self.lista_de_musicas.selection_clear(0, tk.END)
-            index = self.lista_de_musicas.curselection()
-            musica_aleatoria = random.choice(self.musicas_mp3)
-            self.lista_de_musicas.selection_set(self.musicas_mp3.index(musica_aleatoria))
-            self.musica_atual = self.musicas_mp3[self.lista_de_musicas.curselection()[0]]
-            self.carregar_musica()
-
-
-    def musica_anterior(self):
-        self.lista_de_musicas.selection_clear(0, tk.END)
-        self.lista_de_musicas.selection_set(self.musicas_mp3.index(self.musica_atual))
-        self.musica_atual = self.musicas_mp3[self.lista_de_musicas.curselection()[0]]
-        self.carregar_musica()
-
+    def embaralhar(self):
+        self.ordem = [indice for indice in range(len(self.musicas_mp3))]
+        random.shuffle(self.ordem)
+        self.musica_atual = self.ordem[0]
 
 
 def main():
@@ -167,5 +206,3 @@ if __name__ == "__main__":
     root.geometry("600x400")
     gerenciador = MusicPlayer(root)
     root.mainloop()
-
-
