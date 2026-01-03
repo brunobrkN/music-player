@@ -1,5 +1,6 @@
-import pygame, os, random
+import pygame, random, os
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog
 
 class MusicPlayer:
@@ -15,7 +16,7 @@ class MusicPlayer:
         self.pasta = None
 
         self.musica_atual = None
-        self.musicas_mp3 = []
+        self.musicas_mp3 = {}
         self.ordem = []
 
         self.paused = False
@@ -53,8 +54,8 @@ class MusicPlayer:
         menu_bar = tk.Menu(root)
         self.root.config(menu=menu_bar)
         menu_principal = tk.Menu(menu_bar, tearoff=False)
-        menu_principal.add_command(label="Selecionar pasta de músicas", command=self.selecionar_musicas)
-        menu_principal.add_command(label="Adicionar músicas")
+        menu_principal.add_command(label="Selecionar pasta de músicas", command=self.selecionar_pasta)
+        menu_principal.add_command(label="Adicionar músicas",command=self.selecionar_musicas)
         menu_bar.add_cascade(label='☰ Menu', compound='none', menu=menu_principal)
 
         self.lista_de_musicas = tk.Listbox(root,selectmode=tk.EXTENDED, bg="black", fg="white", width=150, height=20)
@@ -77,7 +78,7 @@ class MusicPlayer:
 
         self.menu_musicas = tk.Menu(root, tearoff=0)
         self.menu_musicas.add_command(label='Remover da playlist', command=self.remover_musicas)
-        self.menu_musicas.add_command(label='Adicionar musicas')
+        self.menu_musicas.add_command(label='Adicionar musicas', command=self.selecionar_musicas)
 
     def _verificar_fim_da_musica(self):
 
@@ -100,18 +101,19 @@ class MusicPlayer:
             self.aleatorio_button.config(image=self.icones["shuffle_on"])
 
         else:
-            self.ordem = self.musicas_mp3.copy()
+            self.ordem = [indice for indice in range(len(self.musicas_mp3))]
             self.aleatorio_button.config(image=self.icones["shuffle_off"])
 
 
     def carregar_musica(self,):
-
-        pygame.mixer.music.load(os.path.join(self.pasta, self.musicas_mp3[self.musica_atual]))
+        pygame.mixer.music.load(list(self.musicas_mp3.keys())[self.musica_atual])
         pygame.mixer.music.play()
 
         self.lista_de_musicas.selection_clear(0, tk.END)
         self.lista_de_musicas.selection_set(self.musica_atual)
         self.lista_de_musicas.see(self.musica_atual)
+        print(self.musica_atual)
+        print(self.ordem)
 
 
     def duplo_click(self,event):
@@ -134,11 +136,9 @@ class MusicPlayer:
     def embaralhar(self):
         self.ordem = [indice for indice in range(len(self.musicas_mp3))]
         random.shuffle(self.ordem)
-        self.musica_atual = self.ordem[0]
 
 
     def musica_anterior(self):
-
         try:
             self.lista_de_musicas.selection_clear(0, tk.END)
             self.lista_de_musicas.selection_set(self.ordem.index(self.musica_atual) - 1)
@@ -173,32 +173,62 @@ class MusicPlayer:
         :return:
         """
 
-        if self.musica_atual == len(self.ordem)-1:
+        if self.ordem.index(self.musica_atual) == len(self.ordem)-1:
             if self.modo_aleatorio:
                 self.embaralhar()
+                self.musica_atual = self.ordem[0]
             else:
-                self.musica_atual = 0
-
+                self.musica_atual = self.ordem[0]
+              
         else:
             self.musica_atual = self.ordem[self.ordem.index(self.musica_atual) + 1]
-            self.carregar_musica()
+
+        self.carregar_musica()
 
 
     def remover_musicas(self):
         musicas = self.lista_de_musicas.curselection()
-
+        print(musicas)
+        print(self.musica_atual)
         for musica in reversed(musicas):
-            self.musicas_mp3.pop(musica)
-            self.ordem.pop(musica)
+            self.musicas_mp3.pop(list(self.musicas_mp3.keys())[musica])
             self.lista_de_musicas.delete(musica)
-        print(self.ordem)
+        if self.modo_aleatorio:
+            self.embaralhar()
+
+        else:
+            self.ordem = [indice for indice in range(len(self.musicas_mp3))]
+
+        if self.musica_atual in musicas:
+            self.proxima_musica()
+            self.carregar_musica()
 
 
     def selecionar_musicas(self):
-        self.pasta = filedialog.askdirectory(title="Selecione uma Pasta")
+        musicas_selecionadas = filedialog.askopenfilenames(
+            title= 'Selecione a(s) música(s)',
+            filetypes=(('Musicas','.mp3'),)
+        )
+        if musicas_selecionadas:
+            for musica in musicas_selecionadas:
+                caminho = Path(musica)
+                self.musicas_mp3[musica] = caminho.name
+                self.lista_de_musicas.insert("end", caminho.name.replace(".mp3", ''))
+                if len(self.ordem) == 0:
+                    self.ordem.append(0)
+                else:
+                    self.ordem.append(max(self.ordem)+1)
+        if not self.musica_atual:
+            self.musica_atual = 0
+            self.carregar_musica()
+
+
+    def selecionar_pasta(self):
+        self.pasta = Path(filedialog.askdirectory(title="Selecione uma Pasta"))
         if self.pasta:
-            self.musicas_mp3 = [musica for musica in os.listdir(self.pasta) if musica.endswith('.mp3')]
-            for musica in self.musicas_mp3:
+            self.musicas_mp3 = {str(musica) : musica.name for musica in self.pasta.glob('*.mp3')}
+
+            for key,musica in self.musicas_mp3.items():
                 self.lista_de_musicas.insert("end", musica.replace(".mp3",''))
             self.lista_de_musicas.select_set(0)
             self.musica_atual = 0
