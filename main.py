@@ -69,10 +69,12 @@ class MusicPlayer:
         self.play_pause_button = tk.Button(control_frame, image=self.icones["pause"], borderwidth=0, command=self.tocar_musica)
         self.next_button = tk.Button(control_frame, image=self.icones["next"], borderwidth=0, command=self.proxima_musica)
         self.previous_button = tk.Button(control_frame, image=self.icones["previous"], borderwidth=0, command=self.musica_anterior)
+        self.add_button = tk.Button(control_frame,image = self.icones["add"], borderwidth=0,command=self.selecionar_musicas)
         self.play_pause_button.grid(row=0, column=1, padx=0, pady=10)
         self.next_button.grid(row=0, column=2, padx=0, pady=10)
         self.previous_button.grid(row=0, column=0, padx=0, pady=10)
         self.aleatorio_button.grid(row=0, column=3, padx=0, pady=10)
+        self.add_button.grid(row=0, column=4, padx=0, pady=10)
 
         self.lista_de_musicas.bind("<Button-3>", self.musicas_opcoes)
 
